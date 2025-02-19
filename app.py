@@ -11,6 +11,7 @@ MSSQL_CONFIG = {
     "database": "ibo",
     "driver": "ODBC Driver 17 for SQL Server"
 }
+#deneme 
 
 def get_mssql_connection():
     conn_str = f"DRIVER={MSSQL_CONFIG['driver']};SERVER={MSSQL_CONFIG['server']};DATABASE={MSSQL_CONFIG['database']};Trusted_Connection=yes;"
