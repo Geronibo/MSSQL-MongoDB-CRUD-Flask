@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MSSQL Kaydı Düzenle</title>
+</head>
+<body>
+    <h1>MSSQL Kaydı Düzenle</h1>
+    <form action="/update_mssql/{{ row.id }}" method="POST">
+        {% for column in mssql_columns %}
+            <label for="{{ column }}">{{ column }}:</label><br>
+            <input type="text" id="{{ column }}" name="{{ column }}" value="{{ row[column] }}"><br><br>
+        {% endfor %}
+        <input type="submit" value="Kaydet">
+    </form>
+    <a href="/">Geri Dön</a>
+</body>
+</html>

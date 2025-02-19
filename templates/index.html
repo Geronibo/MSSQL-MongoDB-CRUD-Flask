@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veri Listesi</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            background-color: #e0f7fa; /* Açık mavi arka plan */
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Genel container */
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header ve başlıklar */
+        h2, h3 {
+            text-align: center;
+            color: #0277bd;
+        }
+
+        /* Button container */
+        .buttons-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        button {
+            background-color: #0277bd;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #01579b;
+        }
+
+        /* Formlar */
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        form input {
+            margin: 8px 0;
+            padding: 8px;
+            width: 250px;
+            font-size: 16px;
+            border-radius: 4px;
+            border: 1px solid #0277bd;
+        }
+
+        form button {
+            width: 250px;
+            padding: 12px;
+            background-color: #0288d1;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        form button:hover {
+            background-color: #0277bd;
+        }
+
+        /* Table Styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table, th, td {
+            border: 1px solid #0277bd;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #0288d1;
+            color: white;
+        }
+
+        td {
+            background-color: #f1f1f1;
+        }
+
+        td button {
+            background-color: #d32f2f;
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        td button:hover {
+            background-color: #c62828;
+        }
+
+        /* Hata mesajları */
+        #mssql_error, #mongodb_error {
+            color: red;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        /* Responsive support */
+        @media (max-width: 768px) {
+            .container {
+                width: 90%;
+            }
+
+            form input, form button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Hata mesajlarını göstermek için alan -->
+        <div id="mssql_error" style="display:none;"></div>
+        <div id="mongodb_error" style="display:none;"></div>
+
+        <!-- Butonlar -->
+        <div class="buttons-container">
+            <button onclick="showMssql()">MSSQL Verileri Göster</button>
+            <button onclick="showMongodb()">MongoDB Verileri Göster</button>
+        </div>
+
+        <!-- MSSQL Verileri Butonu ve Formu -->
+        <div id="mssql_form" style="display:none;">
+            <h3>MSSQL Kullanıcı Ekle</h3>
+            <form id="mssql_form_add">
+                <label>Ad: </label><input type="text" id="mssql_ad"><br>
+                <label>Soyad: </label><input type="text" id="mssql_soyad"><br>
+                <label>Email: </label><input type="text" id="mssql_email"><br>
+                <label>Telefon: </label><input type="text" id="mssql_telno"><br>
+                <button type="button" onclick="addMssqlUser()">Kullanıcı Ekle</button>
+            </form>
+        </div>
+
+        <div id="mssql_table" style="display:none;">
+            <h2>MSSQL Verileri</h2>
+            <table>
+                <tr>
+                    <th>Ad</th>
+                    <th>Soyad</th>
+                    <th>Email</th>
+                    <th>Telefon</th>
+                    <th>İşlem</th>
+                </tr>
+                {% for row in mssql_rows %}
+                <tr>
+                    <td contenteditable="true" onBlur="updateData('{{ row.user_id }}', 'ad', this.innerText, 'mssql')">{{ row.ad }}</td>
+                    <td contenteditable="true" onBlur="updateData('{{ row.user_id }}', 'soyad', this.innerText, 'mssql')">{{ row.soyad }}</td>
+                    <td contenteditable="true" onBlur="updateData('{{ row.user_id }}', 'mail', this.innerText, 'mssql')">{{ row.mail }}</td>
+                    <td contenteditable="true" onBlur="updateData('{{ row.user_id }}', 'telno', this.innerText, 'mssql')">{{ row.telno }}</td>
+                    <td><button onclick="deleteMssqlUser('{{ row.user_id }}')">Sil</button></td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <!-- MongoDB Verileri Butonu ve Formu -->
+        <div id="mongodb_form" style="display:none;">
+            <h3>MongoDB Kullanıcı Ekle</h3>
+            <form id="mongodb_form_add">
+                <label>Ad: </label><input type="text" id="mongodb_ad"><br>
+                <label>Email: </label><input type="text" id="mongodb_email"><br>
+                <label>Telefon: </label><input type="text" id="mongodb_phone"><br>
+                <button type="button" onclick="addMongodbUser()">Kullanıcı Ekle</button>
+            </form>
+        </div>
+
+        <div id="mongodb_table" style="display:none;">
+            <h2>MongoDB Verileri</h2>
+            <table>
+                <tr>
+                    <th>Ad</th>
+                    <th>Email</th>
+                    <th>Telefon</th>
+                    <th>İşlem</th>
+                </tr>
+                {% for row in mongodb_rows %}
+                <tr>
+                    <td contenteditable="true" onBlur="updateData('{{ row._id }}', 'name', this.innerText, 'mongodb')">{{ row.name }}</td>
+                    <td contenteditable="true" onBlur="updateData('{{ row._id }}', 'email', this.innerText, 'mongodb')">{{ row.email }}</td>
+                    <td contenteditable="true" onBlur="updateData('{{ row._id }}', 'phone', this.innerText, 'mongodb')">{{ row.phone }}</td>
+                    <td><button onclick="deleteMongodbUser('{{ row._id }}')">Sil</button></td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function showMssql() {
+            $('#mssql_form').show();
+            $('#mssql_table').show();
+            $('#mongodb_form').hide();
+            $('#mongodb_table').hide();
+        }
+
+        function showMongodb() {
+            $('#mongodb_form').show();
+            $('#mongodb_table').show();
+            $('#mssql_form').hide();
+            $('#mssql_table').hide();
+        }
+
+        function addMssqlUser() {
+            const ad = $('#mssql_ad').val();
+            const soyad = $('#mssql_soyad').val();
+            const email = $('#mssql_email').val();
+            const telno = $('#mssql_telno').val();
+            
+            $.ajax({
+                url: "/add_mssql",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ ad: ad, soyad: soyad, email: email, telno: telno }),
+                success: function(response) {
+                    if (response.status === "error") {
+                        $('#mssql_error').text(response.message).show(); // Hata mesajını ekranda göster
+                    } else {
+                        alert("MSSQL Kullanıcı Eklendi");
+                        location.reload();
+                    }
+                },
+                error: function(xhr) {
+                    console.error("Hata: " + xhr.responseText);
+                    $('#mssql_error').text("Kullanıcı zaten mevcut!").show(); // Genel hata mesajı
+                }
+            });
+        }
+
+        function addMongodbUser() {
+            const name = $('#mongodb_ad').val();
+            const email = $('#mongodb_email').val();
+            const phone = $('#mongodb_phone').val();
+            
+            $.ajax({
+                url: "/add_mongodb",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ name: name, email: email, phone: phone }),
+                success: function(response) {
+                    if (response.status === "error") {
+                        $('#mongodb_error').text(response.message).show(); // Hata mesajını ekranda göster
+                    } else {
+                        alert("MongoDB Kullanıcı Eklendi");
+                        location.reload();
+                    }
+                },
+                error: function(xhr) {
+                    console.error("Hata: " + xhr.responseText);
+                    $('#mongodb_error').text("Bu kullanıcı zaten mevcut!").show(); // Genel hata mesajı
+                }
+            });
+        }
+
+        function deleteMssqlUser(user_id) {
+            $.ajax({
+                url: "/delete_mssql",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ user_id: user_id }),
+                success: function(response) {
+                    alert("MSSQL Kullanıcı Silindi");
+                    location.reload();
+                },
+                error: function(xhr) {
+                    console.error("Hata: " + xhr.responseText);
+                }
+            });
+        }
+
+        function deleteMongodbUser(_id) {
+            $.ajax({
+                url: "/delete_mongodb",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ _id: _id }),
+                success: function(response) {
+                    alert("MongoDB Kullanıcı Silindi");
+                    location.reload();
+                },
+                error: function(xhr) {
+                    console.error("Hata: " + xhr.responseText);
+                }
+            });
+        }
+
+        function updateData(id, column, value, db) {
+            $.ajax({
+                url: "/update",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ id: id, column: column, value: value, db: db }),
+                success: function(response) {
+                    console.log("Güncellendi: " + response.message);
+                },
+                error: function(xhr) {
+                    console.error("Hata: " + xhr.responseText);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
