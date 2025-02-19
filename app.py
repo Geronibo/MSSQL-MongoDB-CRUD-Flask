@@ -144,6 +144,7 @@ def delete_mssql_user():
 def delete_mongodb_user():
     data = request.json
     user_id = data.get("_id")
+    print("mongodb user deleting")
     
     try:
         # Delete the user from MongoDB by _id
