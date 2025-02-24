@@ -1,32 +1,86 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session,jsonify
 import pyodbc
 from pymongo import MongoClient
 from bson import ObjectId
 
 app = Flask(__name__)
+app.secret_key = "supersecretkey"  # Oturum yönetimi için gerekli
+mssql_conn = None
+mongo_collection = None
 
-# 📌 MSSQL Bağlantı Ayarları
-MSSQL_CONFIG = {
-    "server": "IBO\\SQLEXPRESS",
-    "database": "ibo",
-    "driver": "ODBC Driver 17 for SQL Server"
-}
-
-# 📌 MongoDB Bağlantısı
-MONGO_URI = "mongodb://localhost:27017/"
-mongo_client = MongoClient(MONGO_URI)
-mongo_db = mongo_client["veriler"]
-mongo_collection = mongo_db["employee"]
-
-# 📌 MSSQL Bağlantısı Alma
-def get_mssql_connection():
-    conn_str = f"DRIVER={MSSQL_CONFIG['driver']};SERVER={MSSQL_CONFIG['server']};DATABASE={MSSQL_CONFIG['database']};Trusted_Connection=yes;"
+# 📌 MSSQL Bağlantısı Alma (Kullanıcıdan alınan bilgilerle)
+def get_mssql_connection(server, database, username, password):
+    conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password};Encrypt=yes;TrustServerCertificate=yes;"
     return pyodbc.connect(conn_str)
+
+def init_mongo():
+    # MongoDB'ye ilk bağlantı
+   global mongo_collection
+   try:
+        musername = session.get("musername")
+        mpassword = session.get("mpassword")
+        mdatabase = session.get("mdatabase")
+
+        # MongoDB bağlantı dizesini oluştur
+        mongo_uri = f"mongodb://{musername}:{mpassword}@localhost:27017/{mdatabase}"
+        mongo_client = MongoClient(mongo_uri)
+        mongo_db = mongo_client[mdatabase]
+        
+        # MongoDB koleksiyonuna bağlan
+        mongo_collection = mongo_db["employee"]  # Koleksiyona bağlantı
+
+   except Exception as e:
+        print(f"MongoDB Bağlantı Hatası: {e}")
+
+@app.route("/", methods=["GET", "POST"])
+def first_page():
+    return redirect(url_for("login"))
+
+# 📌 Kullanıcı giriş kontrolü ve MSSQL bilgilerini alma
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    global mssql_conn  # Global değişkeni kullanıyoruz
+    if request.method == "POST":
+        # MSSQL Bağlantı Bilgileri
+        server = request.form["server"]
+        database = request.form["database"]
+        username = request.form["username"]
+        password = request.form["password"]
+        
+        # MongoDB Bağlantı Bilgileri
+        musername = request.form["musername"]
+        mpassword = request.form["mpassword"]
+        mdatabase = request.form["mdatabase"]
+        
+        try:
+            # MSSQL bağlantısını kuruyoruz
+            mssql_conn = get_mssql_connection(server, database, username, password)
+            cursor = mssql_conn.cursor()
+            cursor.execute("SELECT 1")  # Bağlantıyı test et
+
+            # MongoDB bağlantısını başlat
+            session["musername"] = musername
+            session["mpassword"] = mpassword
+            session["mdatabase"] = mdatabase
+            init_mongo()  # MongoDB'yi başlat
+
+            # Bağlantı başarılı, oturum bilgilerini sakla
+            session["server"] = server
+            session["database"] = database
+            session["username"] = username
+            session["password"] = password
+
+            # Kullanıcıyı ana sayfaya yönlendir
+            return redirect(url_for("index"))
+        except Exception as e:
+            return render_template("login.html", error=f"Bağlantı hatası: {e}")
+    
+    return render_template("login.html")
+
 
 # 📌 Eğer deneme_table1 yoksa oluştur
 def create_mssql_table():
-    conn = get_mssql_connection()
-    cursor = conn.cursor()
+    cursor = mssql_conn.cursor()
     cursor.execute("""
         IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'deneme_table1')
         BEGIN
@@ -39,22 +93,19 @@ def create_mssql_table():
             );
         END
     """)
-    conn.commit()
-    conn.close()
+    mssql_conn.commit()
+    
 
 # 📌 Ana Sayfa (Verileri Listeleme)
-@app.route("/")
+@app.route("/index")
 def index():
     try:
         create_mssql_table()
-
-        # MSSQL Verilerini Getir
-        conn = get_mssql_connection()
-        cursor = conn.cursor()
+        cursor = mssql_conn.cursor()
         cursor.execute("SELECT user_id, ad, soyad, mail, telno FROM deneme_table1")
         columns = [column[0] for column in cursor.description]
         mssql_rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
-        conn.close()
+        
 
         # MongoDB Verilerini Getir
         mongodb_rows = list(mongo_collection.find({}, {"_id": 1, "name": 1, "email": 1, "phone": 1}))
@@ -73,11 +124,9 @@ def update_data():
 
     if db_type == "mssql":
         try:
-            conn = get_mssql_connection()
-            cursor = conn.cursor()
+            cursor = mssql_conn.cursor()
             cursor.execute(f"UPDATE deneme_table1 SET {column} = ? WHERE user_id = ?", (value, int(row_id)))
-            conn.commit()
-            conn.close()
+            mssql_conn.commit()
             return jsonify({"message": "MSSQL güncellendi"}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -96,15 +145,14 @@ def add_mssql_user():
     ad, soyad, email, telno = data.get("ad"), data.get("soyad"), data.get("email"), data.get("telno")
 
     try:
-        conn = get_mssql_connection()
-        cursor = conn.cursor()
+       
+        cursor = mssql_conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM deneme_table1 WHERE mail = ? OR telno = ?", (email, telno))
         if cursor.fetchone()[0] > 0:
             return jsonify({"message": "Bu Kullanici Zaten Mevcut"}), 400
         
         cursor.execute("INSERT INTO deneme_table1 (ad, soyad, mail, telno) VALUES (?, ?, ?, ?)", (ad, soyad, email, telno))
-        conn.commit()
-        conn.close()
+        mssql_conn.commit()
         return jsonify({"message": "MSSQL Kullanıcı Eklendi"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -131,11 +179,10 @@ def delete_mssql_user():
     user_id = data.get("user_id")
 
     try:
-        conn = get_mssql_connection()
-        cursor = conn.cursor()
+       
+        cursor = mssql_conn.cursor()
         cursor.execute("DELETE FROM deneme_table1 WHERE user_id = ?", (user_id,))
-        conn.commit()
-        conn.close()
+        mssql_conn.commit()
         return jsonify({"message": "MSSQL Kullanıcı Silindi"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500   
@@ -155,3 +202,4 @@ def delete_mongodb_user():
 # 📌 Uygulama Çalıştırma
 if __name__ == "__main__":
     app.run(debug=True)
+
