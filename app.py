@@ -43,6 +43,7 @@ def login():
     if request.method == "POST":
         # MSSQL Bağlantı Bilgileri
         server = request.form["server"]
+        # server ="host.docker.internal"
         database = request.form["database"]
         username = request.form["username"]
         password = request.form["password"]
@@ -201,5 +202,6 @@ def delete_mongodb_user():
 
 # 📌 Uygulama Çalıştırma
 if __name__ == "__main__":
+
     app.run(debug=True)
 
