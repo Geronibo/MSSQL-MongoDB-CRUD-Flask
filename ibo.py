@@ -10,7 +10,7 @@ mongo_collection = None
 
 # 📌 MSSQL Bağlantısı Alma (Kullanıcıdan alınan bilgilerle)
 def get_mssql_connection(server, database, username, password):
-    conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password};Encrypt=yes;TrustServerCertificate=yes;"
+    conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password};Encrypt=no;TrustServerCertificate=yes;timeout=60'"
     return pyodbc.connect(conn_str)
 
 def init_mongo():
@@ -22,7 +22,7 @@ def init_mongo():
         mdatabase = session.get("mdatabase")
 
         # MongoDB bağlantı dizesini oluştur
-        mongo_uri = f"mongodb://{musername}:{mpassword}@localhost:27017/{mdatabase}"
+        mongo_uri = f"mongodb://{musername}:{mpassword}@host.docker.internal:27017/{mdatabase}"
         mongo_client = MongoClient(mongo_uri)
         mongo_db = mongo_client[mdatabase]
         
@@ -43,7 +43,7 @@ def login():
     if request.method == "POST":
         # MSSQL Bağlantı Bilgileri
         server = request.form["server"]
-        # server ="host.docker.internal"
+        # server ="host.docker.internal,1433"
         database = request.form["database"]
         username = request.form["username"]
         password = request.form["password"]
@@ -202,6 +202,5 @@ def delete_mongodb_user():
 
 # 📌 Uygulama Çalıştırma
 if __name__ == "__main__":
-
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=int("3000"), debug=True)
 
